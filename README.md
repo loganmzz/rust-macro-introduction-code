@@ -12,8 +12,8 @@ Le but est de développer une macro dérivative "Data" :
 
 Retrouvez ici les étapes pas-à-pas :
 
-* [00 - Initialisation](https://github.com/loganmzz/rust-macro-introduction-code/tree/00-init) :arrow_down_small: (vous êtes ici)
-* [01 - Blueprint](https://github.com/loganmzz/rust-macro-introduction-code/tree/01-blueprint)
+* [00 - Initialisation](https://github.com/loganmzz/rust-macro-introduction-code/tree/00-init)
+* [01 - Blueprint](https://github.com/loganmzz/rust-macro-introduction-code/tree/01-blueprint) :arrow_down_small: (vous êtes ici)
 * [02 - impl Default](https://github.com/loganmzz/rust-macro-introduction-code/tree/02-impl-default)
 * [03 - Modules](https://github.com/loganmzz/rust-macro-introduction-code/tree/03-modules)
 * [04 - impl Debug](https://github.com/loganmzz/rust-macro-introduction-code/tree/04-impl-debug)
@@ -22,75 +22,116 @@ Retrouvez ici les étapes pas-à-pas :
 * [07 - API publique](https://github.com/loganmzz/rust-macro-introduction-code/tree/07-public-api)
 * [Fin](https://github.com/loganmzz/rust-macro-introduction-code/tree/99-final)
 
-## 00 - Initialisation
+## 01 - Blueprint
 
-### A. Création du projet Rust
-
-```bash
-cargo init --lib --name demo-data
-```
-
-### B. Configuration du projet Rust
-
-```toml
-# Cargo.toml
-[lib]
-proc-macro = true         # Ajoute la crate `proc-macro` lors de la compilation.
-                          # Mais pas accessible pour les tests...
-                          # La crate ne peut plus exporter que des macros !
-
-[dependencies]
-proc-macro2 = "1.0.73"    # Alternative à `proc-macro2` accessible pour écrire des tests ou des libs.
-quote = "1.0.34"          # Génération de flux de tokens.
-syn = "2.0.44"            # Analyseur syntaxique
-```
-
-
-### C. Initialisation de la macro
+### A. Structuration des blueprints
 
 ```rust
-// src/lib.rs
-#[proc_macro_derive(Data,)]
-pub fn data_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input = syn::parse_macro_input!(input as syn::DeriveInput);
-    let output = quote::quote!();
-    proc_macro::TokenStream::from(output)
+// Input: Ce que doit consommer la macro
+
+// Output: Ce que doit produire la macro
+
+// Test: Ce qui valide la sortie de la macro
+mod tests {
+    use super::*;
 }
 ```
 
-### D. Un peu de refactoring
+### B. Création du blueprint `Unit`
 
 ```rust
-// src/lib.rs
-#[proc_macro_derive(Data,)]
-pub fn data_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input = syn::parse_macro_input!(input as syn::DeriveInput);
+// tests/blueprint_unit.rs
+// Input
+struct Unit;
 
-    // Permet de débugger l'instance de syn::DeriveInput
-    #[cfg(feature = "debug")]
-    eprintln!("{:#?}", input);
-
-    let output = data_macro_derive_impl(input);
-
-    // Permet de débugger le code généré par la macro
-    #[cfg(feature = "debug")]
-    eprintln!("{}", output);
-
-    output.into()
+// Output
+impl ::std::default::Default for Unit {
+    fn default() -> Self {
+        Self
+    }
 }
 
-/// Génère le flux de token de manière testable
-/// car indépendant de proc_macro !
-fn data_macro_derive_impl(input: syn::DeriveInput) -> proc_macro2::TokenStream {
-    quote::quote!()
+// Test
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unit_impl_default() {
+        Unit::default();
+    }
 }
 ```
 
-```toml
-# Cargo.toml
+### C. Création du blueprint `Named`
 
-[features]
-debug = [
-  "syn/extra-traits", # Permet de débugger les types de syn
-]
+```rust
+// tests/blueprint_named.rs
+// Input
+struct Named {
+    string: String,
+    number: usize,
+    boolean: bool,
+}
+
+// Output
+impl ::std::default::Default for Named {
+    fn default() -> Self {
+        Self {
+            string: ::std::default::Default::default(),
+            number: ::std::default::Default::default(),
+            boolean: ::std::default::Default::default(),
+        }
+    }
+}
+
+// Test
+mod tests {
+    use super::*;
+
+    #[test]
+    fn named_impl_default() {
+        let default = Named::default();
+
+        assert_eq!(String::default(), default.string, "string");
+        assert_eq!(usize::default(), default.number, "number");
+        assert_eq!(bool::default(), default.boolean, "boolean");
+    }
+}
+```
+
+### D. Création du blueprint `Tuple`
+
+```rust
+// tests/blueprint_tuple.rs
+// Input
+struct Tuple(
+    String,
+    usize,
+    bool,
+);
+
+// Output
+impl ::std::default::Default for Tuple {
+    fn default() -> Self {
+        Self(
+            ::std::default::Default::default(),
+            ::std::default::Default::default(),
+            ::std::default::Default::default(),
+        )
+    }
+}
+
+// Test
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tuple_impl_default() {
+        let default = Tuple::default();
+
+        assert_eq!(String::default(), default.0, "0");
+        assert_eq!(usize::default(), default.1, "1");
+        assert_eq!(bool::default(), default.2, "2");
+    }
+}
 ```
