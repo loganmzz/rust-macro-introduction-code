@@ -13,8 +13,8 @@ Le but est de développer une macro dérivative "Data" :
 Retrouvez ici les étapes pas-à-pas :
 
 * [00 - Initialisation](https://github.com/loganmzz/rust-macro-introduction-code/tree/00-init)
-* [01 - Blueprint](https://github.com/loganmzz/rust-macro-introduction-code/tree/01-blueprint) :arrow_down_small: (vous êtes ici)
-* [02 - impl Default](https://github.com/loganmzz/rust-macro-introduction-code/tree/02-impl-default)
+* [01 - Blueprint](https://github.com/loganmzz/rust-macro-introduction-code/tree/01-blueprint)
+* [02 - impl Default](https://github.com/loganmzz/rust-macro-introduction-code/tree/02-impl-default) :arrow_down_small: (vous êtes ici)
 * [03 - Modules](https://github.com/loganmzz/rust-macro-introduction-code/tree/03-modules)
 * [04 - impl Debug](https://github.com/loganmzz/rust-macro-introduction-code/tree/04-impl-debug)
 * [05 - Attribut](https://github.com/loganmzz/rust-macro-introduction-code/tree/05-attribute)
@@ -22,116 +22,310 @@ Retrouvez ici les étapes pas-à-pas :
 * [07 - API publique](https://github.com/loganmzz/rust-macro-introduction-code/tree/07-public-api)
 * [Fin](https://github.com/loganmzz/rust-macro-introduction-code/tree/99-final)
 
-## 01 - Blueprint
+## 02 - impl `Default`
 
-### A. Structuration des blueprints
+### A. Préparation du fichier de test
 
-```rust
-// Input: Ce que doit consommer la macro
-
-// Output: Ce que doit produire la macro
-
-// Test: Ce qui valide la sortie de la macro
-mod tests {
-    use super::*;
-}
-```
-
-### B. Création du blueprint `Unit`
+Initialiser le fichier de tests `tests/macro_unit.rs` en recopiant les sections `Input` et `Test` :
 
 ```rust
-// tests/blueprint_unit.rs
+// tests/macro_unit.rs
 // Input
+// copier depuis tests/blueprint_unit.rs
 struct Unit;
 
-// Output
-impl ::std::default::Default for Unit {
-    fn default() -> Self {
-        Self
-    }
-}
-
 // Test
-mod tests {
-    use super::*;
-
-    #[test]
-    fn unit_impl_default() {
-        Unit::default();
-    }
-}
+// copier depuis tests/blueprint_units.rs
+mod tests { /* ... */ }
 ```
 
-### C. Création du blueprint `Named`
+Puis ajouter l'import de la macro ainsi que l'attribut `derive` sur la structure :
 
 ```rust
-// tests/blueprint_named.rs
-// Input
-struct Named {
-    string: String,
-    number: usize,
-    boolean: bool,
-}
+// tests/macro_unit.rs
+use demo_data::Data;
 
-// Output
-impl ::std::default::Default for Named {
-    fn default() -> Self {
-        Self {
-            string: ::std::default::Default::default(),
-            number: ::std::default::Default::default(),
-            boolean: ::std::default::Default::default(),
+// Input
+#[derive(Data)]
+struct Unit;
+```
+
+### B. Implémentation simplissime
+
+```rust
+// src/lib.rs
+fn data_macro_derive_impl(input: syn::DeriveInput) -> proc_macro2::TokenStream {
+    quote::quote! {
+        impl ::std::default::Default for Unit {
+            fn default() -> Self {
+                Self
+            }
         }
     }
 }
+```
 
-// Test
-mod tests {
-    use super::*;
+Récupérer le nom de la structure :
 
-    #[test]
-    fn named_impl_default() {
-        let default = Named::default();
-
-        assert_eq!(String::default(), default.string, "string");
-        assert_eq!(usize::default(), default.number, "number");
-        assert_eq!(bool::default(), default.boolean, "boolean");
+```rust
+// src/lib.rs
+fn data_macro_derive_impl(input: syn::DeriveInput) -> proc_macro2::TokenStream {
+    let ident = &input.ident;
+    quote::quote! {
+        impl ::std::default::Default for #ident { /* ... */ }
     }
 }
 ```
 
-### D. Création du blueprint `Tuple`
+### C. Implémentation `Named`
+
+Initialiser le fichier de tests `tests/macro_named.rs`
 
 ```rust
-// tests/blueprint_tuple.rs
-// Input
-struct Tuple(
-    String,
-    usize,
-    bool,
-);
+// tests/macro_named.rs
+use demo_data::Data;
 
-// Output
-impl ::std::default::Default for Tuple {
-    fn default() -> Self {
-        Self(
-            ::std::default::Default::default(),
-            ::std::default::Default::default(),
-            ::std::default::Default::default(),
-        )
-    }
-}
+// Input
+
+#[derive(Data)]
+// copier depuis tests/blueprint_named.rs
+struct Named { /* ... */ }
 
 // Test
-mod tests {
-    use super::*;
+// copier depuis tests/blueprint_named.rs
+mod tests { /* ... */ }
+```
 
-    #[test]
-    fn tuple_impl_default() {
-        let default = Tuple::default();
+Debug des informations :
 
-        assert_eq!(String::default(), default.0, "0");
-        assert_eq!(usize::default(), default.1, "1");
-        assert_eq!(bool::default(), default.2, "2");
+```shell
+cargo test --test macro_named --features debug
+```
+
+```rust
+DeriveInput {
+    attrs: [],
+    vis: Visibility::Inherited,
+    ident: Ident {
+        ident: "Named",
+        span: #0 bytes(54..59),
+    },
+    generics: Generics {
+        lt_token: None,
+        params: [],
+        gt_token: None,
+        where_clause: None,
+    },
+    data: Data::Struct {
+        struct_token: Struct,
+        fields: Fields::Named {
+            brace_token: Brace,
+            named: [
+                Field {
+                    attrs: [],
+                    vis: Visibility::Inherited,
+                    mutability: FieldMutability::None,
+                    ident: Some(
+                        Ident {
+                            ident: "string",
+                            span: #0 bytes(66..72),
+                        },
+                    ),
+                    colon_token: Some(
+                        Colon,
+                    ),
+                    ty: Type::Path {
+                        qself: None,
+                        path: Path {
+                            leading_colon: None,
+                            segments: [
+                                PathSegment {
+                                    ident: Ident {
+                                        ident: "String",
+                                        span: #0 bytes(74..80),
+                                    },
+                                    arguments: PathArguments::None,
+                                },
+                            ],
+                        },
+                    },
+                },
+                Comma,
+                Field {
+                    attrs: [],
+                    vis: Visibility::Inherited,
+                    mutability: FieldMutability::None,
+                    ident: Some(
+                        Ident {
+                            ident: "number",
+                            span: #0 bytes(86..92),
+                        },
+                    ),
+                    colon_token: Some(
+                        Colon,
+                    ),
+                    ty: Type::Path {
+                        qself: None,
+                        path: Path {
+                            leading_colon: None,
+                            segments: [
+                                PathSegment {
+                                    ident: Ident {
+                                        ident: "usize",
+                                        span: #0 bytes(94..99),
+                                    },
+                                    arguments: PathArguments::None,
+                                },
+                            ],
+                        },
+                    },
+                },
+                Comma,
+                Field {
+                    attrs: [],
+                    vis: Visibility::Inherited,
+                    mutability: FieldMutability::None,
+                    ident: Some(
+                        Ident {
+                            ident: "boolean",
+                            span: #0 bytes(105..112),
+                        },
+                    ),
+                    colon_token: Some(
+                        Colon,
+                    ),
+                    ty: Type::Path {
+                        qself: None,
+                        path: Path {
+                            leading_colon: None,
+                            segments: [
+                                PathSegment {
+                                    ident: Ident {
+                                        ident: "bool",
+                                        span: #0 bytes(114..118),
+                                    },
+                                    arguments: PathArguments::None,
+                                },
+                            ],
+                        },
+                    },
+                },
+                Comma,
+            ],
+        },
+        semi_token: None,
+    },
+}
+```
+
+Récupérer la liste des champs :
+
+```rust
+// src/lib.rs
+fn data_macro_derive_impl(input: syn::DeriveInput) -> proc_macro2::TokenStream {
+    // ...
+    let fields = match input.data {
+        syn::Data::Struct(ref data) => data.fields.iter().collect::<Vec<_>>(),
+        syn::Data::Enum(_) => panic!("enum are not supported!"),
+        syn::Data::Union(_) => panic!("union are not supported!"),
+    };
+    // ...
+}
+```
+
+Construction de l'initialisation des champs :
+
+```rust
+// src/lib.rs
+fn data_macro_derive_impl(input: syn::DeriveInput) -> proc_macro2::TokenStream {
+    // ...
+    let fields = /* ... */;
+    let default_fields: proc_macro2::TokenStream = fields
+        .iter()
+        .map(|field| {
+            let ident = field.ident.as_ref().unwrap();
+            quote::quote! {
+                #ident: ::std::default::Default::default(),
+            }
+        })
+        .collect();
+    quote::quote! {
+        impl ::std::default::Default for #ident {
+            fn default() -> Self {
+                Self {
+                    #default_fields
+                }
+            }
+        }
+    }
+}
+```
+
+### C. Implémentation `Tuple`
+
+Initialiser le fichier de tests `tests/macro_tuple.rs`
+
+```rust
+// tests/macro_tuple.rs
+use demo_data::Data;
+
+// Input
+#[derive(Data)]
+// copier depuis tests/blueprint_tuple.rs
+struct Tuple( /* ... */ )
+
+// Test
+// copier depuis tests/blueprint_tuple.rs
+mod tests { /* ... */ }
+```
+
+Construction de l'initialisation des champs :
+
+```rust
+// src/lib.rs
+fn data_macro_derive_impl(input: syn::DeriveInput) -> proc_macro2::TokenStream {
+    // ...
+    let default_fields: proc_macro2::TokenStream = fields
+        .iter()
+        .map(|field| {
+            let prefix = if let Some(ref ident) = field.ident {
+                quote::quote!(#ident:)
+            } else {
+                quote::quote!()
+            };
+            quote::quote! {
+                #prefix ::std::default::Default::default(),
+            }
+        })
+        .collect();
+    // ...
+}
+```
+
+Corrigeons la méthode `default` :
+
+```rust
+// src/lib.rs
+fn data_macro_derive_impl(input: syn::DeriveInput) -> proc_macro2::TokenStream {
+    let (fields, delimiter) = match input.data {
+        syn::Data::Struct(ref data) => (
+            data.fields.iter().collect::<Vec<_>>(),
+            match data.fields {
+                syn::Fields::Named(_) => proc_macro2::Delimiter::Brace,
+                syn::Fields::Unnamed(_) => proc_macro2::Delimiter::Parenthesis,
+                syn::Fields::Unit => proc_macro2::Delimiter::None,
+            },
+        ),
+        // ...
+    };
+    // ...
+    let field_group = proc_macro2::Group::new(delimiter, default_fields);
+    quote::quote! {
+        impl ::std::default::Default for #ident {
+            fn default() -> Self {
+                Self #field_group
+            }
+        }
     }
 }
 ```
