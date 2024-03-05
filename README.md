@@ -16,260 +16,243 @@ Retrouvez ici les étapes pas-à-pas :
 * [01 - Blueprint](https://github.com/loganmzz/rust-macro-introduction-code/tree/01-blueprint)
 * [02 - impl Default](https://github.com/loganmzz/rust-macro-introduction-code/tree/02-impl-default)
 * [03 - Modules](https://github.com/loganmzz/rust-macro-introduction-code/tree/03-modules)
-* [04 - impl Debug](https://github.com/loganmzz/rust-macro-introduction-code/tree/04-impl-debug) :arrow_down_small: (vous êtes ici)
-* [05 - Attribut](https://github.com/loganmzz/rust-macro-introduction-code/tree/05-attribute)
+* [04 - Debug](https://github.com/loganmzz/rust-macro-introduction-code/tree/04-debug)
+* [05 - Attribut](https://github.com/loganmzz/rust-macro-introduction-code/tree/05-attribute) :arrow_down_small: (vous êtes ici)
 * [06 - Gestion des erreurs](https://github.com/loganmzz/rust-macro-introduction-code/tree/06-errors)
 * [Fin](https://github.com/loganmzz/rust-macro-introduction-code/tree/99-final)
 
-## 04 - impl `Debug`
+## 05 - Attribut
 
-#### A. Création des blueprints
+### A. Déclaration de l'attribut
 
 ```rust
-// tests/blueprint_unit.rs
-// Output
-impl ::std::fmt::Debug for Unit {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f
-            .debug_struct("Unit")
-            .finish()
-    }
-}
-
-// Test
-mod tests {
-    #[test]
-    fn unit_impl_debug() {
-        assert_eq!(
-            "Unit",
-            format!("{:?}", Unit),
-        );
-    }
-}
+// src/lib.rs
+#[proc_macro_derive(Data,attributes(data,),)]
 ```
 
+### B. Premier test
+
 ```rust
-// tests/blueprint_named.rs
-// Output
-impl ::std::fmt::Debug for Named {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f
-            .debug_struct("Named")
-            .field("string", &self.string)
-            .field("number", &self.number)
-            .field("boolean", &self.boolean)
-            .finish()
-    }
+// tests/macro_attr_debug.rs
+use demo_data::Data;
+
+// Input
+#[derive(Data)]
+struct AttrDebugNamedIgnoreNumber {
+    string: String,
+    #[data(debug=false)]
+    number: usize,
+    boolean: bool,
 }
+
+#[derive(Data)]
+struct AttrDebugNamedForceNumber {
+    string: String,
+    #[data(debug=true)]
+    number: usize,
+    boolean: bool,
+}
+
+#[derive(Data)]
+struct AttrDebugNamedNoValueNumber {
+    string: String,
+    #[data(debug)]
+    number: usize,
+    boolean: bool,
+}
+
+#[derive(Data)]
+struct AttrDebugNamedUnspecifiedNumber {
+    string: String,
+    #[data()]
+    number: usize,
+    boolean: bool,
+}
+
+#[derive(Data)]
+struct AttrDebugTupleIgnore1(
+    String,
+    #[data(debug=false)]
+    usize,
+    bool,
+);
 
 // Test
 mod tests {
+    use super::*;
+
     #[test]
-    fn named_immpl_debug() {
-        let debug =  Named {
+    fn named_impl_debug_false() {
+        let debug = AttrDebugNamedIgnoreNumber {
             string: "world".to_string(),
             number: 42,
             boolean: false,
         };
 
         assert_eq!(
-            "Named { string: \"world\", number: 42, boolean: false }",
+            "AttrDebugNamedIgnoreNumber { string: \"world\", boolean: false }",
             format!("{:?}", debug),
         );
     }
-}
-```
-```rust
-// tests/blueprint_tuple.rs
-// Output
-impl ::std::fmt::Debug for Tuple {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f
-            .debug_tuple("Tuple")
-            .field(&self.0)
-            .field(&self.1)
-            .field(&self.2)
-            .finish()
-    }
-}
 
-// Test
-mod tests {
+    #[test]
+    fn named_impl_debug_true() {
+        let debug = AttrDebugNamedForceNumber {
+            string: "world".to_string(),
+            number: 42,
+            boolean: false,
+        };
+
+        assert_eq!(
+            "AttrDebugNamedForceNumber { string: \"world\", number: 42, boolean: false }",
+            format!("{:?}", debug),
+        );
+    }
+
+    #[test]
+    fn named_impl_debug_novalue() {
+        let debug = AttrDebugNamedNoValueNumber {
+            string: "world".to_string(),
+            number: 42,
+            boolean: false,
+        };
+
+        assert_eq!(
+            "AttrDebugNamedNoValueNumber { string: \"world\", number: 42, boolean: false }",
+            format!("{:?}", debug),
+        );
+    }
+
+    #[test]
+    fn named_impl_debug_unspecified() {
+        let debug = AttrDebugNamedUnspecifiedNumber {
+            string: "world".to_string(),
+            number: 42,
+            boolean: false,
+        };
+
+        assert_eq!(
+            "AttrDebugNamedUnspecifiedNumber { string: \"world\", number: 42, boolean: false }",
+            format!("{:?}", debug),
+        );
+    }
+
     #[test]
     fn tuple_impl_debug() {
-        let debug = Tuple(
+        let debug = AttrDebugTupleIgnore1(
             "world".to_string(),
             42,
             false,
         );
 
         assert_eq!(
-            "Tuple(\"world\", 42, false)",
+            "AttrDebugTupleIgnore1(\"world\", false)",
             format!("{:?}", debug),
         );
     }
 }
 ```
 
-#### B. Mise à jour des tests
-
-```rust
-// tests/macro_unit.rs
-// tests/macro_named.rs
-// tests/macro_tuple.rs
-```
-
-#### C. Implémentation `Unit`
-
-```rust
-// src/generator.rs
-pub fn generate(data: model::Data) -> proc_macro2::TokenStream {
-    // ...
-    let ident_str = ident.to_string();
-    quote::quote! {
-        // ...
-        impl ::std::fmt::Debug for #ident {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                f
-                    .debug_struct(#ident_str)
-                    .finish()
-            }
-        }
-    }
-}
-```
-
-#### D. Implémentation `Named`
-
-```rust
-// src/generator.rs
-pub fn generate(data: model::Data) -> proc_macro2::TokenStream {
-    // ...
-    let debug_fields: proc_macro2::TokenStream = data.fields.content
-        .iter()
-        .map(|field| {
-            if let Some(ref ident) = field.ident {
-                let ident_str = ident.to_string();
-                quote::quote! {
-                    .field(#ident_str, &self.#ident)
-                }
-            } else {
-                quote::quote!()
-            }
-        })
-        .collect();
-    quote::quote! {
-        // ...
-        impl ::std::fmt::Debug for #ident {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                f
-                    .debug_struct(#ident_str)
-                    #debug_fields
-                    .finish()
-            }
-        // ...
-    }
-}
-```
-
-#### E. Implémentation `Tuple`
-
-Pour les champs :
+### C. Implémentation
 
 ```rust
 // src/model.rs
+#[derive(Default,)]
+pub struct FieldOptions {
+    pub debug: Option<bool>,
+}
+
 pub struct Field {
     // ...
-    pub ordinal: usize,
+    pub options: FieldOptions,
 }
 
 // src/parser.rs
+pub fn parse_field_attributes(attrs: &Vec<syn::Attribute>) -> model::FieldOptions {
+    let mut options = model::FieldOptions::default();
+    for attr in attrs {
+        if attr.path().is_ident("data") {
+            attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("debug") {
+                    let value: syn::LitBool = meta.value()?.parse()?;
+                    options.debug = Some(value.value());
+                    Ok(())
+                } else {
+                    Err(meta.error(format!("Unsupported field data attribute option: {:?}", meta.path)))
+                }
+            })
+            .unwrap();
+        }
+    }
+    options
+}
+
 pub fn parse(input: syn::DeriveInput) -> model::Data {
     // ...
     let fields = model::Fields {
         // ...
         content: fields
-            .into_iter()
-            .enumerate()
+            // ...
             .map(|(ordinal, field)| {
                 // ...
+                let options = parse_field_attributes(&field.attrs);
                 model::Field {
                     // ...
-                    ordinal,
+                    options,
                 }
             })
-        /..
-    }
+            // ...
+    };
+    // ...
 }
+
 // src/generator.rs
 pub fn generate(data: model::Data) -> proc_macro2::TokenStream {
     // ...
     let debug_fields: proc_macro2::TokenStream = data.fields.content
         .iter()
         .map(|field| {
-            if let Some(ref ident) = field.ident {
-                // ...
-            } else {
-                let ident = proc_macro2::Literal::usize_unsuffixed(field.ordinal);
-                quote::quote! {
-                    .field(&self.#ident)
-                }
+            if let Some(false) = field.options.debug {
+                return quote!();
             }
+            // ...
         })
         .collect();
 }
 ```
 
-Pour la méthode :
+### D. Crate `darling`
+
+```toml
+# Cargo.toml
+[dependencies]
+darling = "0.20.8"
+```
 
 ```rust
-// src/model.rs
-pub enum StructFormat {
-    Named,
-    Tuple,
-}
+// src/lib.rs
+#[macro_use]
+extern crate darling;
 
-pub struct Data {
-    // ...
-    pub format: StructFormat,
+// src/model.rs
+#[derive(Default,FromMeta,)]
+pub struct FieldOptions {
     // ...
 }
 
 // src/parser.rs
-pub fn parse(input: syn::DeriveInput) -> model::Data {
-    // ...
-    let (format, fields, delimiter) = match input {
-        // ...
-        => (model::StructFormat::Named, fields.iter().collect(), proc_macro2::Delimiter::Brace,),
-        // ...
-        => (model::StructFormat::Tuple, fields.iter().collect(), proc_macro2::Delimiter::Parenthesis,),
-        _ => (model::StructFormat::Named, vec![], proc_macro2::Delimiter::None,),
-    }
-    // ...
-    model::Data {
-        ident,
-        format,
-        fields,
-    }
-}
+use darling::FromMeta;
 
-// src/generator.rs
-pub fn generate(data: model::Data) -> proc_macro2::TokenStream {
-    // ...
-    let debug_method = match data.format {
-        model::StructFormat::Named => quote::format_ident!("debug_struct"),
-        model::StructFormat::Tuple => quote::format_ident!("debug_tuple"),
-    };
-    let debug_fields: proc_macro2::TokenStream = /* ... */;
-    // ...
-    quote::quote! {
-        impl ::std::fmt::Debug for #ident {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                f
-                    .#debug_method(#ident_str)
-                // ...
+pub fn parse_field_attributes(attrs: &Vec<syn::Attribute>) -> model::FieldOptions {
+    let mut options = model::FieldOptions::default();
+    for attr in attrs {
+        if attr.path().is_ident("data") {
+            let parsed = model::FieldOptions::from_meta(&attr.meta).unwrap();
+            if parsed.debug.is_some() {
+                options.debug = parsed.debug;
             }
         }
     }
+    options
 }
 ```
