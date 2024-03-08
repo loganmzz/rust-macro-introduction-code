@@ -1,0 +1,19 @@
+[package]
+name = "demo-data"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+proc-macro = true         # Ajoute la crate `proc-macro` lors de la compilation.
+                          # Mais pas accessible pour les tests...
+                          # La crate ne peut plus exporter que des macros !
+
+[dependencies]
+proc-macro2 = "1.0.73"    # Alternative à `proc-macro2` accessible pour écrire des tests ou des libs.
+quote = "1.0.34"          # Génération de flux de tokens.
+syn = "2.0.44"            # Analyseur syntaxique
+
+[features]
+debug = [
+  "syn/extra-traits",     # Permet de débugger les types de syn
+]
