@@ -8,6 +8,14 @@ impl ::std::default::Default for Unit {
     }
 }
 
+impl ::std::fmt::Debug for Unit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f
+            .debug_struct("Unit")
+            .finish()
+    }
+}
+
 // Test
 mod tests {
     use super::*;
@@ -16,5 +24,13 @@ mod tests {
     #[test]
     fn unit_impl_default() {
         <Unit as Default>::default();
+    }
+
+    #[test]
+    fn unit_impl_debug() {
+        assert_eq!(
+            "Unit",
+            format!("{:?}", Unit),
+        );
     }
 }

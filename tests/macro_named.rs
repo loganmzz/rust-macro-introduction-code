@@ -21,4 +21,18 @@ mod tests {
         assert_eq!(usize::default(), default.number, "number");
         assert_eq!(bool::default(), default.boolean, "boolean");
     }
+
+    #[test]
+    fn named_impl_debug() {
+        let debug =  Named {
+            string: "world".to_string(),
+            number: 42,
+            boolean: false,
+        };
+
+        assert_eq!(
+            "Named { string: \"world\", number: 42, boolean: false }",
+            format!("{:?}", debug),
+        );
+    }
 }
