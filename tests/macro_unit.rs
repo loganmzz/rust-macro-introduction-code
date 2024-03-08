@@ -13,4 +13,12 @@ mod tests {
     fn unit_impl_default() {
         Unit::default();
     }
+
+    #[test]
+    fn unit_impl_debug() {
+        assert_eq!(
+            "Unit",
+            format!("{:?}", Unit),
+        );
+    }
 }
