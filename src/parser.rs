@@ -1,4 +1,18 @@
 use crate::model;
+use darling::FromMeta;
+
+pub fn parse_field_attributes(attrs: &Vec<syn::Attribute>) -> model::FieldOptions {
+    let mut options = model::FieldOptions::default();
+    for attr in attrs {
+        if attr.path().is_ident("data") {
+            let parsed = model::FieldOptions::from_meta(&attr.meta).unwrap();
+            if parsed.debug.is_some() {
+                options.debug = parsed.debug;
+            }
+        }
+    }
+    options
+}
 
 pub fn parse(input: syn::DeriveInput) -> model::Data {
     let ident = input.ident.clone();
@@ -40,9 +54,11 @@ pub fn parse(input: syn::DeriveInput) -> model::Data {
             .enumerate()
             .map(|(ordinal,field)| {
                 let ident = field.ident.clone();
+                let options = parse_field_attributes(&field.attrs);
                 model::Field {
                     ident,
                     ordinal,
+                    options,
                 }
             })
             .collect()

@@ -1,9 +1,12 @@
+#[macro_use]
+extern crate darling;
+
 mod generator;
 mod model;
 mod parser;
 
-#[proc_macro_derive(Data,)]
-pub fn data_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+#[proc_macro_derive(Data,attributes(data,),)]
+pub fn derive_data(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
     #[cfg(feature = "debug_log")]
     eprintln!("{:#?}", input);

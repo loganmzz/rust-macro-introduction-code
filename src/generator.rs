@@ -1,3 +1,5 @@
+use quote::quote;
+
 use crate::model;
 
 pub fn generate(data: model::Data) -> proc_macro2::TokenStream {
@@ -23,6 +25,9 @@ pub fn generate(data: model::Data) -> proc_macro2::TokenStream {
     let debug_fields: proc_macro2::TokenStream = data.fields.content
         .iter()
         .map(|field| {
+            if let Some(false) = field.options.debug {
+                return quote!();
+            }
             if let Some(ref ident) = field.ident {
                 let ident_str = ident.to_string();
                 quote::quote! {
