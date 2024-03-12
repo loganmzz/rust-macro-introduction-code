@@ -9,6 +9,8 @@ proc-macro = true         # Ajoute la crate `proc-macro` lors de la compilation.
                           # La crate ne peut plus exporter que des macros !
 
 [dependencies]
+darling = "0.20.8"        # Permet de parser les attributs dans une structure
+                          # personnalisée à la manière de serde
 proc-macro2 = "1.0.73"    # Alternative à `proc-macro2` accessible pour écrire des tests ou des libs.
 quote = "1.0.34"          # Génération de flux de tokens.
 syn = "2.0.44"            # Analyseur syntaxique
