@@ -17,177 +17,50 @@ Retrouvez ici les étapes pas-à-pas :
 * [02 - impl Default](https://github.com/loganmzz/rust-macro-introduction-code/tree/02-impl-default)
 * [03 - Modules](https://github.com/loganmzz/rust-macro-introduction-code/tree/03-modules)
 * [04 - Debug](https://github.com/loganmzz/rust-macro-introduction-code/tree/04-debug)
-* [05 - Attribut](https://github.com/loganmzz/rust-macro-introduction-code/tree/05-attribute) :arrow_down_small: (vous êtes ici)
-* [06 - Gestion des erreurs](https://github.com/loganmzz/rust-macro-introduction-code/tree/06-errors)
+* [05 - Attribut](https://github.com/loganmzz/rust-macro-introduction-code/tree/05-attribute)
+* [06 - Gestion des erreurs](https://github.com/loganmzz/rust-macro-introduction-code/tree/06-errors) :arrow_down_small: (vous êtes ici)
 * [Fin](https://github.com/loganmzz/rust-macro-introduction-code/tree/99-final)
 
-## 05 - Attribut
+## 06 - Gestion des erreurs
 
-### A. Déclaration de l'attribut
-
-```rust
-// src/lib.rs
-#[proc_macro_derive(Data,attributes(data,),)]
-```
-
-### B. Premier test
+### A. Cas de test
 
 ```rust
-// tests/macro_attr_debug.rs
+// tests/fail.rs
 use demo_data::Data;
 
-// Input
 #[derive(Data)]
-struct AttrDebugNamedIgnoreNumber {
+struct FailNotCompile {
     string: String,
-    #[data(debug=false)]
+    #[data(debug=false,foobar,baroof,)]
+    #[data(barfoo,)]
     number: usize,
     boolean: bool,
-}
-
-#[derive(Data)]
-struct AttrDebugNamedForceNumber {
-    string: String,
-    #[data(debug=true)]
-    number: usize,
-    boolean: bool,
-}
-
-#[derive(Data)]
-struct AttrDebugNamedNoValueNumber {
-    string: String,
-    #[data(debug)]
-    number: usize,
-    boolean: bool,
-}
-
-#[derive(Data)]
-struct AttrDebugNamedUnspecifiedNumber {
-    string: String,
-    #[data()]
-    number: usize,
-    boolean: bool,
-}
-
-#[derive(Data)]
-struct AttrDebugTupleIgnore1(
-    String,
-    #[data(debug=false)]
-    usize,
-    bool,
-);
-
-// Test
-mod tests {
-    use super::*;
-
-    #[test]
-    fn named_impl_debug_false() {
-        let debug = AttrDebugNamedIgnoreNumber {
-            string: "world".to_string(),
-            number: 42,
-            boolean: false,
-        };
-
-        assert_eq!(
-            "AttrDebugNamedIgnoreNumber { string: \"world\", boolean: false }",
-            format!("{:?}", debug),
-        );
-    }
-
-    #[test]
-    fn named_impl_debug_true() {
-        let debug = AttrDebugNamedForceNumber {
-            string: "world".to_string(),
-            number: 42,
-            boolean: false,
-        };
-
-        assert_eq!(
-            "AttrDebugNamedForceNumber { string: \"world\", number: 42, boolean: false }",
-            format!("{:?}", debug),
-        );
-    }
-
-    #[test]
-    fn named_impl_debug_novalue() {
-        let debug = AttrDebugNamedNoValueNumber {
-            string: "world".to_string(),
-            number: 42,
-            boolean: false,
-        };
-
-        assert_eq!(
-            "AttrDebugNamedNoValueNumber { string: \"world\", number: 42, boolean: false }",
-            format!("{:?}", debug),
-        );
-    }
-
-    #[test]
-    fn named_impl_debug_unspecified() {
-        let debug = AttrDebugNamedUnspecifiedNumber {
-            string: "world".to_string(),
-            number: 42,
-            boolean: false,
-        };
-
-        assert_eq!(
-            "AttrDebugNamedUnspecifiedNumber { string: \"world\", number: 42, boolean: false }",
-            format!("{:?}", debug),
-        );
-    }
-
-    #[test]
-    fn tuple_impl_debug() {
-        let debug = AttrDebugTupleIgnore1(
-            "world".to_string(),
-            42,
-            false,
-        );
-
-        assert_eq!(
-            "AttrDebugTupleIgnore1(\"world\", false)",
-            format!("{:?}", debug),
-        );
-    }
+    #[data(foobaz)]
+    foobaz: bool,
 }
 ```
 
-### C. Implémentation
+### B. Suppression des `panic!`
+
+N/A !
+
+### C. Suppression des `.unwrap()`
 
 ```rust
-// src/model.rs
-#[derive(Default,)]
-pub struct FieldOptions {
-    pub debug: Option<bool>,
-}
-
-pub struct Field {
-    // ...
-    pub options: FieldOptions,
-}
-
 // src/parser.rs
-pub fn parse_field_attributes(attrs: &Vec<syn::Attribute>) -> model::FieldOptions {
-    let mut options = model::FieldOptions::default();
+pub fn parse_field_attributes(attrs: &Vec<syn::Attribute>) -> syn::Result<model::FieldOptions> {
+    // ...
     for attr in attrs {
         if attr.path().is_ident("data") {
-            attr.parse_nested_meta(|meta| {
-                if meta.path.is_ident("debug") {
-                    let value: syn::LitBool = meta.value()?.parse()?;
-                    options.debug = Some(value.value());
-                    Ok(())
-                } else {
-                    Err(meta.error(format!("Unsupported field data attribute option: {:?}", meta.path)))
-                }
-            })
-            .unwrap();
+            let parsed = model::FieldOptions::from_meta(&attr.meta)?;
+            // ...
         }
     }
-    options
+    Ok(options)
 }
 
-pub fn parse(input: syn::DeriveInput) -> model::Data {
+pub fn parse(input: syn::DeriveInput) -> syn::Result<model::Data> {
     // ...
     let fields = model::Fields {
         // ...
@@ -195,64 +68,188 @@ pub fn parse(input: syn::DeriveInput) -> model::Data {
             // ...
             .map(|(ordinal, field)| {
                 // ...
-                let options = parse_field_attributes(&field.attrs);
-                model::Field {
-                    // ...
+                let options = match parse_field_attributes(&field.attrs)?;
+                Ok(model::Field {
+                    ident,
+                    ordinal,
                     options,
-                }
+                })
             })
-            // ...
+            .collect::<syn::Result<_>>()?,
     };
-    // ...
+    Ok(model::Data {
+        ident,
+        format,
+        fields,
+    })
 }
 
-// src/generator.rs
-pub fn generate(data: model::Data) -> proc_macro2::TokenStream {
-    // ...
-    let debug_fields: proc_macro2::TokenStream = data.fields.content
-        .iter()
-        .map(|field| {
-            if let Some(false) = field.options.debug {
-                return quote!();
-            }
-            // ...
-        })
-        .collect();
+// src/lib.rs
+fn data_macro_derive_impl(input: syn::DeriveInput) -> proc_macro2::TokenStream {
+    match parser::parse(input) {
+        Ok(data) => generator::generate(data),
+        Err(error) => error.into_compile_error(),
+    }
 }
 ```
 
-### D. Crate `darling`
-
-```toml
-# Cargo.toml
-[dependencies]
-darling = "0.20.8"
-```
+### D. Collecte des erreurs
 
 ```rust
-// src/lib.rs
-#[macro_use]
-extern crate darling;
-
-// src/model.rs
-#[derive(Default,FromMeta,)]
-pub struct FieldOptions {
-    // ...
-}
-
 // src/parser.rs
-use darling::FromMeta;
-
-pub fn parse_field_attributes(attrs: &Vec<syn::Attribute>) -> model::FieldOptions {
-    let mut options = model::FieldOptions::default();
+pub fn parse_field_attributes(attrs: &Vec<syn::Attribute>) -> syn::Result<model::FieldOptions> {
+    let mut result = syn::Result::Ok(model::FieldOptions::default());
     for attr in attrs {
         if attr.path().is_ident("data") {
-            let parsed = model::FieldOptions::from_meta(&attr.meta).unwrap();
-            if parsed.debug.is_some() {
-                options.debug = parsed.debug;
+            result = match model::FieldOptions::from_meta(&attr.meta) {
+                Ok(parsed) => {
+                    result.map(|mut options| {
+                        if parsed.debug.is_some() {
+                            options.debug = parsed.debug;
+                        }
+                        options
+                    })
+                },
+                Err(error) => {
+                    match result {
+                        Ok(_) => Err(error.into()),
+                        Err(mut existing) => {
+                            existing.combine(error.into());
+                            Err(existing)
+                        }
+                    }
+                }
             }
         }
     }
-    options
+    result
+}
+
+pub fn parse(input: syn::DeriveInput) -> syn::Result<model::Data> {
+    // ...
+    let fields_len = fields.len();
+    let fields = model::Fields {
+        // ...
+        content: fields
+            // ...
+            .fold(syn::Result::Ok(Vec::with_capacity(fields_len)), |result, (ordinal,field)| {
+                let ident = field.ident.clone();
+                match parse_field_attributes(&field.attrs) {
+                    Ok(options) => {
+                        match result {
+                            Ok(mut field_list) => {
+                                field_list.push(model::Field {
+                                    ident,
+                                    ordinal,
+                                    options,
+                                });
+                                Ok(field_list)
+                            },
+                            e => e,
+                        }
+                    },
+                    Err(error) => {
+                        match result {
+                            Ok(_) => Err(error),
+                            Err(mut existing) => {
+                                existing.combine(error);
+                                Err(existing)
+                            },
+                        }
+                    },
+                }
+            })?,
+    };
+    // ...
+```
+
+### E. Un peu de refactoring ...
+
+```rust
+// src/parser.rs
+trait FoldSynResult {
+    type Item;
+
+    fn fold_syn_result<O,G,FG,FC,E,>(
+        self,
+        init: O,
+        get: FG,
+        combine: FC,
+    ) -> syn::Result<O>
+    where
+        FG: FnMut(Self::Item)->Result<G,E>,
+        FC: FnMut(O,G)->O,
+        E: Into<syn::Error>,
+    ;
+}
+
+impl<ITER: Iterator> FoldSynResult for ITER {
+    type Item = ITER::Item;
+
+    fn fold_syn_result<O,G,FG,FC,E,>(
+        self,
+        init: O,
+        mut get: FG,
+        mut combine: FC,
+    ) -> syn::Result<O>
+    where
+        FG: FnMut(Self::Item)->Result<G,E>,
+        FC: FnMut(O,G)->O,
+        E: Into<syn::Error>, {
+        self
+            .fold(syn::Result::Ok(init), |acc, e| {
+                match get(e) {
+                    Ok(g) => match acc {
+                        Ok(o) => Ok(combine(o, g)),
+                        e => e,
+                    },
+                    Err(error) => match acc {
+                        Ok(_) => Err(error.into()),
+                        Err(mut existing) => {
+                            existing.combine(error.into());
+                            Err(existing)
+                        }
+                    },
+                }
+            })
+    }
+}
+
+pub fn parse_field_attributes(attrs: &Vec<syn::Attribute>) -> syn::Result<model::FieldOptions> {
+    attrs
+        .into_iter()
+        .fold_syn_result(
+            model::FieldOptions::default(),
+            |attr| model::FieldOptions::from_meta(&attr.meta),
+            |mut options, parsed| {
+                if parsed.debug.is_some() {
+                    options.debug = parsed.debug;
+                }
+                options
+            },
+        )
+}
+
+
+pub fn parse(input: syn::DeriveInput) -> syn::Result<model::Data> {
+    // ...
+    let fields = model::Fields {
+        // ...
+        content: fields
+            // ...
+            .fold_syn_result(
+                Vec::with_capacity(fields_len),
+                |(ordinal, field)| parse_field_attributes(&field.attrs).map(|options| (field.ident.clone(), ordinal, options)),
+                |mut field_list, (ident, ordinal, options)| {
+                    field_list.push(model::Field {
+                        ident,
+                        ordinal,
+                        options,
+                    });
+                    field_list
+                },
+            )?,
+    };
+    // ...
 }
 ```
