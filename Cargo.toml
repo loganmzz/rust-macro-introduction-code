@@ -19,3 +19,4 @@ syn = "2.0.44"            # Analyseur syntaxique
 debug = [
   "syn/extra-traits",     # Permet de débugger les types de syn
 ]
+test_fail = []

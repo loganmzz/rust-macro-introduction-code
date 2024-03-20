@@ -25,6 +25,8 @@ pub fn derive_data(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// Génère le flux de token de manière testable
 /// car indépendant de proc_macro !
 fn data_macro_derive_impl(input: syn::DeriveInput) -> proc_macro2::TokenStream {
-    let data = parser::parse(input);
-    generator::generate(data)
+    match parser::parse(input) {
+        Ok(data) => generator::generate(data),
+        Err(error) => error.into_compile_error(),
+    }
 }
