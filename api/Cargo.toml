@@ -1,0 +1,4 @@
+[package]
+name = "demo-data-api"
+version.workspace = true
+edition.workspace = true

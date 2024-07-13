@@ -1,0 +1,21 @@
+[package]
+name = "demo-data-macro"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+proc-macro = true         # Ajoute la crate `proc-macro` lors de la compilation.
+                          # Mais pas accessible pour les tests...
+                          # La crate ne peut plus exporter que des macros !
+
+[dependencies]
+darling = { workspace = true }        # Permet de parser les attributs dans une structure
+                                      # personnalisée à la manière de serde
+proc-macro2 = { workspace = true }    # Alternative à `proc-macro2` accessible pour écrire des tests ou des libs.
+quote = { workspace = true }          # Génération de flux de tokens.
+syn = { workspace = true }            # Analyseur syntaxique
+
+[features]
+debug = [
+  "syn/extra-traits",     # Permet de débugger les types de syn
+]
