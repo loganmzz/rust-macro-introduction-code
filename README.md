@@ -18,259 +18,122 @@ Retrouvez ici les étapes pas-à-pas :
 * [03 - Modules](https://github.com/loganmzz/rust-macro-introduction-code/tree/03-modules)
 * [04 - Debug](https://github.com/loganmzz/rust-macro-introduction-code/tree/04-debug)
 * [05 - Attribut](https://github.com/loganmzz/rust-macro-introduction-code/tree/05-attribute)
-* [06 - Gestion des erreurs](https://github.com/loganmzz/rust-macro-introduction-code/tree/06-errors) :arrow_down_small: (vous êtes ici)
-* [07 - API publique](https://github.com/loganmzz/rust-macro-introduction-code/tree/07-public-api)
+* [06 - Gestion des erreurs](https://github.com/loganmzz/rust-macro-introduction-code/tree/06-errors)
+* [07 - API publique](https://github.com/loganmzz/rust-macro-introduction-code/tree/07-public-api) :arrow_down_small: (vous êtes ici)
 * [Fin](https://github.com/loganmzz/rust-macro-introduction-code/tree/99-final)
 
-## 06 - Gestion des erreurs
+## 07 - API publique
 
-### A. Cas de test
+Une crate `proc-macro` ne peut exporter que des macros.
+Mais il est possible de créer une crate "chapeau" / "publique".
+
+### A. Création de la crate `api`
+
+```shell
+cargo new api --lib --name demo-data-api
+```
+
+```toml
+# api/Cargo.toml
+[package]
+name = "demo-data-api"
+version.workspace = true
+edition.workspace = true
+```
+
+```rust
+// api/src/lib.rs
+use std::fmt::Debug;
+
+pub trait Data : Default + Debug {}
+```
+
+### B. Création de la crate `macro`
+
+```shell
+cargo new macro --lib --name demo-data-macro &&
+mv src/*.rs macro/src/
+```
+
+_Note : les tests d'intégrations (`/tests`) restent à la racine car le code généré peut dépendre de l'API._
+
+```toml
+# macro/Cargo.toml
+[package]
+name = "demo-data-macro"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+proc-macro = true         # Ajoute la crate `proc-macro` lors de la compilation.
+                          # Mais pas accessible pour les tests...
+                          # La crate ne peut plus exporter que des macros !
+
+[dependencies]
+darling = { workspace = true }        # Permet de parser les attributs dans une structure
+                                      # personnalisée à la manière de serde
+proc-macro2 = { workspace = true }    # Alternative à `proc-macro2` accessible pour écrire des tests ou des libs.
+quote = { workspace = true }          # Génération de flux de tokens.
+syn = { workspace = true }            # Analyseur syntaxique
+
+[features]
+debug = [
+  "syn/extra-traits",     # Permet de débugger les types de syn
+]
+```
+
+### C. Gestion de la crate "chapeau"
 
 ```toml
 # Cargo.toml
+[package]
+name = "demo-data"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+members = [
+  "api",
+  "macro",
+]
+default-members = [
+    ".",
+    "api",
+    "macro",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+
+[workspace.dependencies]  # Permet de définir un référentiel des versions
+darling = "0.20.8"
+proc-macro2 = "1.0.73"
+quote = "1.0.34"
+syn = "2.0.44"
+
+
+[dependencies]
+demo-data-api = { version = "=0.1.0", path = "api" }      # On synchronise les version avec la crate "chapeau"
+demo-data-macro = { version = "=0.1.0", path = "macro" }  # On synchronise les version avec la crate "chapeau"
+
 [features]
+debug = [
+  "demo-data-macro/debug",     # Permet de débugger les types de syn
+]
 test_fail = []
 ```
 
 ```rust
-// tests/fail.rs
-#[cfg(feature = "test_fail")]
-mod test_fail {
-
-  use demo_data::Data;
-
-  #[derive(Data)]
-  struct FailNotCompile {
-      string: String,
-      #[data(debug=false,foobar,baroof,)]
-      #[data(barfoo,)]
-      number: usize,
-      boolean: bool,
-      #[data(foobaz)]
-      foobaz: bool,
-  }
-}
+// src/lib.rs
+pub use ::demo_data_api::*;
+pub use ::demo_data_macro::*;
 ```
+
+### D. Publication
 
 ```shell
-cargo test --test 'fail' --features 'test_fail'
-```
-
-### B. Suppression des `panic!`
-
-```rust
-// src/parser.rs
-pub fn parse(input: syn::DeriveInput) -> syn::Result<model::Data> {
-    let (fields, (format, delimiter)) = match input.data {
-        syn::Data::Struct(ref data) => // ...
-        syn::Data::Enum(_) => Err(syn::Error::new_spanned(input, "enum are not supported!"))?,
-        syn::Data::Union(_) => Err(syn::Error::new_spanned(input, "union are not supported!"))?,
-    }
-    Ok(/* ... */)
-}
-
-// src/lib.rs
-fn data_macro_derive_impl(input: syn::DeriveInput) -> proc_macro2::TokenStream {
-    match parser::parse(input) {
-        Ok(data) => generator::generate(data),
-        Err(error) => error.into_compile_error(),
-    }
-}
-```
-
-### C. Suppression des `.unwrap()`
-
-```rust
-// src/parser.rs
-pub fn parse_field_attributes(attrs: &Vec<syn::Attribute>) -> syn::Result<model::FieldOptions> {
-    // ...
-    for attr in attrs {
-        if attr.path().is_ident("data") {
-            let parsed = model::FieldOptions::from_meta(&attr.meta)?;
-            // ...
-        }
-    }
-    Ok(options)
-}
-
-pub fn parse(input: syn::DeriveInput) -> syn::Result<model::Data> {
-    // ...
-    let fields = model::Fields {
-        // ...
-        content: fields
-            // ...
-            .map(|(ordinal, field)| {
-                // ...
-                let options = match parse_field_attributes(&field.attrs)?;
-                Ok(model::Field {
-                    ident,
-                    ordinal,
-                    options,
-                })
-            })
-            .collect::<syn::Result<_>>()?,
-    };
-    // ...
-}
-```
-
-### D. Collecte des erreurs
-
-```rust
-// src/parser.rs
-pub fn parse_field_attributes(attrs: &Vec<syn::Attribute>) -> syn::Result<model::FieldOptions> {
-    let mut result = syn::Result::Ok(model::FieldOptions::default());
-    for attr in attrs {
-        if attr.path().is_ident("data") {
-            result = match model::FieldOptions::from_meta(&attr.meta) {
-                Ok(parsed) => {
-                    result.map(|mut options| {
-                        if parsed.debug.is_some() {
-                            options.debug = parsed.debug;
-                        }
-                        options
-                    })
-                },
-                Err(error) => {
-                    match result {
-                        Ok(_) => Err(error.into()),
-                        Err(mut existing) => {
-                            existing.combine(error.into());
-                            Err(existing)
-                        }
-                    }
-                }
-            }
-        }
-    }
-    result
-}
-
-pub fn parse(input: syn::DeriveInput) -> syn::Result<model::Data> {
-    // ...
-    let fields_len = fields.len();
-    let fields = model::Fields {
-        // ...
-        content: fields
-            // ...
-            .fold(syn::Result::Ok(Vec::with_capacity(fields_len)), |result, (ordinal,field)| {
-                let ident = field.ident.clone();
-                match parse_field_attributes(&field.attrs) {
-                    Ok(options) => {
-                        match result {
-                            Ok(mut field_list) => {
-                                field_list.push(model::Field {
-                                    ident,
-                                    ordinal,
-                                    options,
-                                });
-                                Ok(field_list)
-                            },
-                            e => e,
-                        }
-                    },
-                    Err(error) => {
-                        match result {
-                            Ok(_) => Err(error),
-                            Err(mut existing) => {
-                                existing.combine(error);
-                                Err(existing)
-                            },
-                        }
-                    },
-                }
-            })?,
-    };
-    // ...
-```
-
-### E. Un peu de refactoring ...
-
-```rust
-// src/parser.rs
-trait FoldSynResult {
-    type Item;
-
-    fn fold_syn_result<O,G,FG,FC,E,>(
-        self,
-        init: O,
-        get: FG,
-        combine: FC,
-    ) -> syn::Result<O>
-    where
-        FG: FnMut(Self::Item)->Result<G,E>,
-        FC: FnMut(O,G)->O,
-        E: Into<syn::Error>,
-    ;
-}
-
-impl<ITER: Iterator> FoldSynResult for ITER {
-    type Item = ITER::Item;
-
-    fn fold_syn_result<O,G,FG,FC,E,>(
-        self,
-        init: O,
-        mut get: FG,
-        mut combine: FC,
-    ) -> syn::Result<O>
-    where
-        FG: FnMut(Self::Item)->Result<G,E>,
-        FC: FnMut(O,G)->O,
-        E: Into<syn::Error>, {
-        self
-            .fold(syn::Result::Ok(init), |acc, e| {
-                match get(e) {
-                    Ok(g) => match acc {
-                        Ok(o) => Ok(combine(o, g)),
-                        e => e,
-                    },
-                    Err(error) => match acc {
-                        Ok(_) => Err(error.into()),
-                        Err(mut existing) => {
-                            existing.combine(error.into());
-                            Err(existing)
-                        }
-                    },
-                }
-            })
-    }
-}
-
-pub fn parse_field_attributes(attrs: &Vec<syn::Attribute>) -> syn::Result<model::FieldOptions> {
-    attrs
-        .into_iter()
-        .fold_syn_result(
-            model::FieldOptions::default(),
-            |attr| model::FieldOptions::from_meta(&attr.meta),
-            |mut options, parsed| {
-                if parsed.debug.is_some() {
-                    options.debug = parsed.debug;
-                }
-                options
-            },
-        )
-}
-
-
-pub fn parse(input: syn::DeriveInput) -> syn::Result<model::Data> {
-    // ...
-    let fields = model::Fields {
-        // ...
-        content: fields
-            // ...
-            .fold_syn_result(
-                Vec::with_capacity(fields_len),
-                |(ordinal, field)| parse_field_attributes(&field.attrs).map(|options| (field.ident.clone(), ordinal, options)),
-                |mut field_list, (ident, ordinal, options)| {
-                    field_list.push(model::Field {
-                        ident,
-                        ordinal,
-                        options,
-                    });
-                    field_list
-                },
-            )?,
-    };
-    // ...
-}
+cargo publish --package demo-data-api &&   # D'abord l'API
+cargo publish --package demo-data-macro && # Puis les macros
+cargo publish --package demo-data          # Enfin la crate "chapeau"
 ```
